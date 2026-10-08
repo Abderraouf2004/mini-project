@@ -5,15 +5,42 @@ import (
 
 	coreTickets "mini-project/backend/core/tickets"
 	appErrors "mini-project/backend/errors"
+	"mini-project/backend/middleware"
 )
 
 func RegisterRoutes(mux *http.ServeMux) {
 	controller := coreTickets.NewController()
 
+	// mux.Handle(
+	// 	"POST /tickets",
+	// 	appErrors.ValidateRequestBody[coreTickets.CreateTicketDTO](
+	// 		http.HandlerFunc(controller.Create),
+	// 	),
+	// )
 	mux.Handle(
 		"POST /tickets",
-		appErrors.ValidateRequestBody[coreTickets.CreateTicketDTO](
-			http.HandlerFunc(controller.Create),
+		middleware.Auth(
+			appErrors.ValidateRequestBody[coreTickets.CreateTicketDTO](
+				http.HandlerFunc(controller.Create),
+			),
 		),
+	)
+	mux.Handle(
+		"GET /tickets",
+		http.HandlerFunc(controller.Get),
+	)
+	mux.Handle(
+		"GET /tickets/{id}",
+		http.HandlerFunc(controller.Getbyid),
+	)
+	mux.Handle(
+		"PUT /tickets/{id}",
+		appErrors.ValidateRequestBody[coreTickets.UpdateTicketDTO](
+			http.HandlerFunc(controller.Update),
+		),
+	)
+	mux.Handle(
+		"DELETE /tickets/{id}",
+		http.HandlerFunc(controller.Delete),
 	)
 }

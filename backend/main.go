@@ -36,7 +36,6 @@ func main() {
 		fmt.Println("Migration error:", err)
 		return
 	}
-	// api.RegisterRoutes(http.DefaultServeMux)
 	apiRouter := http.NewServeMux()
 
 	api.RegisterRoutes(apiRouter)

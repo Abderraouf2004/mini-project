@@ -20,3 +20,34 @@ func (r *Repository) CreateTicket(ticket *models.Ticket) (*models.Ticket, error)
 
 	return ticket, nil
 }
+
+func (r *Repository) GetTickets() ([]*models.Ticket, error) {
+	var tickets []*models.Ticket
+	err := database.DB.Find(&tickets).Error
+	if err != nil {
+		return nil, err
+	}
+	return tickets, nil
+}
+
+func (r *Repository) GetTicketByID(id string) (*models.Ticket, error) {
+	var ticket models.Ticket
+	err := database.DB.First(&ticket, "id = ?", id).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &ticket, nil
+}
+
+func (r *Repository) UpdateTicket(ticket *models.Ticket) (*models.Ticket, error) {
+	err := database.DB.Save(ticket).Error
+	if err != nil {
+		return nil, err
+	}
+	return ticket, nil
+}
+
+func (r *Repository) DeleteTicket(ticket *models.Ticket) error {
+	return database.DB.Delete(ticket).Error
+}
