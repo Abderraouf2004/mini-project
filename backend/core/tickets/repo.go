@@ -21,9 +21,9 @@ func (r *Repository) CreateTicket(ticket *models.Ticket) (*models.Ticket, error)
 	return ticket, nil
 }
 
-func (r *Repository) GetTickets() ([]*models.Ticket, error) {
+func (r *Repository) GetTickets(userID string) ([]*models.Ticket, error) {
 	var tickets []*models.Ticket
-	err := database.DB.Find(&tickets).Error
+	err := database.DB.Find(&tickets, "user_id = ?", userID).Error
 	if err != nil {
 		return nil, err
 	}

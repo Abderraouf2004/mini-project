@@ -24,8 +24,8 @@ func (s *Service) CreateTicket(data CreateTicketDTO, userID string) (*models.Tic
 	return s.repo.CreateTicket(ticket)
 }
 
-func (s *Service) GetTickets() ([]*models.Ticket, error) {
-	return s.repo.GetTickets()
+func (s *Service) GetTickets(userID string) ([]*models.Ticket, error) {
+	return s.repo.GetTickets(userID)
 }
 
 func (s *Service) GetTicketByID(id string, userID string) (*models.Ticket, error) {
