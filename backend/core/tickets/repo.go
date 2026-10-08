@@ -30,9 +30,9 @@ func (r *Repository) GetTickets() ([]*models.Ticket, error) {
 	return tickets, nil
 }
 
-func (r *Repository) GetTicketByID(id string) (*models.Ticket, error) {
+func (r *Repository) GetTicketByID(id string, userID string) (*models.Ticket, error) {
 	var ticket models.Ticket
-	err := database.DB.First(&ticket, "id = ?", id).Error
+	err := database.DB.First(&ticket, "id = ? AND user_id = ?", id, userID).Error
 	if err != nil {
 		return nil, err
 	}

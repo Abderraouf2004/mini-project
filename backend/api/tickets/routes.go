@@ -27,20 +27,28 @@ func RegisterRoutes(mux *http.ServeMux) {
 	)
 	mux.Handle(
 		"GET /tickets",
-		http.HandlerFunc(controller.Get),
+		middleware.Auth(
+			http.HandlerFunc(controller.Get),
+		),
 	)
 	mux.Handle(
 		"GET /tickets/{id}",
-		http.HandlerFunc(controller.Getbyid),
+		middleware.Auth(
+			http.HandlerFunc(controller.Getbyid),
+		),
 	)
 	mux.Handle(
 		"PUT /tickets/{id}",
-		appErrors.ValidateRequestBody[coreTickets.UpdateTicketDTO](
-			http.HandlerFunc(controller.Update),
+		middleware.Auth(
+			appErrors.ValidateRequestBody[coreTickets.UpdateTicketDTO](
+				http.HandlerFunc(controller.Update),
+			),
 		),
 	)
 	mux.Handle(
 		"DELETE /tickets/{id}",
-		http.HandlerFunc(controller.Delete),
+		middleware.Auth(
+			http.HandlerFunc(controller.Delete),
+		),
 	)
 }

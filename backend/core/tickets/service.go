@@ -28,12 +28,16 @@ func (s *Service) GetTickets() ([]*models.Ticket, error) {
 	return s.repo.GetTickets()
 }
 
-func (s *Service) GetTicketByID(id string) (*models.Ticket, error) {
-	return s.repo.GetTicketByID(id)
+func (s *Service) GetTicketByID(id string, userID string) (*models.Ticket, error) {
+	ticket, err := s.repo.GetTicketByID(id, userID)
+	if err != nil {
+		return nil, err
+	}
+	return ticket, nil
 }
 
-func (s *Service) UpdateTicket(id string, data UpdateTicketDTO) (*models.Ticket, error) {
-	ticket, err := s.repo.GetTicketByID(id)
+func (s *Service) UpdateTicket(id string, data UpdateTicketDTO, userID string) (*models.Ticket, error) {
+	ticket, err := s.repo.GetTicketByID(id, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -48,8 +52,8 @@ func (s *Service) UpdateTicket(id string, data UpdateTicketDTO) (*models.Ticket,
 	return s.repo.UpdateTicket(ticket)
 }
 
-func (s *Service) DeleteTicket(id string) error {
-	ticket, err := s.repo.GetTicketByID(id)
+func (s *Service) DeleteTicket(id string, userID string) error {
+	ticket, err := s.repo.GetTicketByID(id, userID)
 	if err != nil {
 		return err
 	}
