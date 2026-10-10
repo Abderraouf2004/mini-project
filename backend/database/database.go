@@ -3,6 +3,7 @@ package database
 import (
 	"os"
 
+	"fmt"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -11,17 +12,18 @@ import (
 var DB *gorm.DB
 
 func ConnectDatabase() (*gorm.DB, error) {
-	err := godotenv.Load()
-	if err != nil {
-		return nil, err
-	}
+	_ = godotenv.Load()
 
 	dsn := os.Getenv("DATABASE_URL")
-
-	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
-	if err != nil {
-		return nil, err
+	if dsn == "" {
+		return nil, fmt.Errorf("DATABASE_URL is not set")
 	}
 
-	return DB, nil
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
+	}
+
+	DB = db
+	return db, nil
 }
