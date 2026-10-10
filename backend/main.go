@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
+	"log/slog"
 	"mini-project/backend/api"
 	"mini-project/backend/database"
 	"mini-project/backend/models"
@@ -15,15 +15,18 @@ import (
 )
 
 func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
 	db, err := database.ConnectDatabase()
 	if err != nil {
-		fmt.Println("Database connection error:", err)
-		return
+
+		slog.Error("Database connection failed", "error", err)
+		os.Exit(1)
 	}
 
 	if err = db.AutoMigrate(models.User{}, models.Ticket{}); err != nil {
-		fmt.Println("Migration error:", err)
-		return
+		slog.Error("Migration failed", "error", err)
+		os.Exit(1)
 	}
 	apiRouter := http.NewServeMux()
 
@@ -40,11 +43,7 @@ func main() {
 		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	// fmt.Println("Server running on port 8080")
 
-	// if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-	// 	log.Fatal("Server error:", err)
-	// }
 	ctx, stop := signal.NotifyContext(
 		context.Background(),
 		os.Interrupt,
@@ -52,7 +51,7 @@ func main() {
 	)
 	defer stop()
 
-	fmt.Println("Server running on port 8080")
+	slog.Info("Server running", "addr", ":8080")
 
 	go func() {
 		err := srv.ListenAndServe()
@@ -70,12 +69,12 @@ func main() {
 	)
 	defer cancel()
 
-	fmt.Println("Shutting down server...")
+	slog.Info("Shutting down server...")
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Printf("Shutdown error: %v", err)
 	}
 
-	fmt.Println("Server stopped")
+	slog.Info("Server stopped")
 
 }
