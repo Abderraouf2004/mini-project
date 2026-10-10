@@ -30,7 +30,7 @@ func main() {
 	}
 	apiRouter := http.NewServeMux()
 
-	api.RegisterRoutes(apiRouter)
+	api.RegisterRoutes(apiRouter, db)
 
 	mux := http.NewServeMux()
 	mux.Handle("/api/", http.StripPrefix("/api", apiRouter))
