@@ -11,12 +11,6 @@ import (
 func RegisterRoutes(mux *http.ServeMux) {
 	controller := coreTickets.NewController()
 
-	// mux.Handle(
-	// 	"POST /tickets",
-	// 	appErrors.ValidateRequestBody[coreTickets.CreateTicketDTO](
-	// 		http.HandlerFunc(controller.Create),
-	// 	),
-	// )
 	mux.Handle(
 		"POST /tickets",
 		middleware.Auth(

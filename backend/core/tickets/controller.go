@@ -2,8 +2,10 @@ package tickets
 
 import (
 	"encoding/json"
-	"mini-project/backend/middleware"
 	"net/http"
+
+	appErrors "mini-project/backend/errors"
+	"mini-project/backend/middleware"
 )
 
 type Controller struct {
@@ -11,39 +13,44 @@ type Controller struct {
 }
 
 func NewController() *Controller {
-	service := NewService()
-
 	return &Controller{
-		service: service,
+		service: NewService(),
 	}
 }
 
 func (c *Controller) Create(w http.ResponseWriter, r *http.Request) {
 	var data CreateTicketDTO
 
-	err := json.NewDecoder(r.Body).Decode(&data)
-	if err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+		appErrors.WriteError(w, appErrors.NewApiError(
+			appErrors.BadRequest,
+			"Invalid request body",
+			"",
+		))
 		return
 	}
 
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
-
 	if !ok {
-		http.Error(w, "user not authenticated", http.StatusUnauthorized)
+		appErrors.WriteError(w, appErrors.NewApiError(
+			appErrors.Unauthorized,
+			"User not authenticated",
+			"",
+		))
 		return
 	}
 
 	ticket, err := c.service.CreateTicket(data, userID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		appErrors.WriteError(w, appErrors.NewApiError(
+			appErrors.BadRequest,
+			"Failed to create ticket",
+			err.Error(),
+		))
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"data":    ticket,
 		"message": "Ticket created successfully",
 	})
@@ -52,41 +59,54 @@ func (c *Controller) Create(w http.ResponseWriter, r *http.Request) {
 func (c *Controller) Get(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
-		http.Error(w, "user not authenticated", http.StatusUnauthorized)
+		appErrors.WriteError(w, appErrors.NewApiError(
+			appErrors.Unauthorized,
+			"User not authenticated",
+			"",
+		))
 		return
 	}
+
 	tickets, err := c.service.GetTickets(userID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		appErrors.WriteError(w, appErrors.NewApiError(
+			appErrors.InternalServerError,
+			"Failed to retrieve tickets",
+			err.Error(),
+		))
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"data":    tickets,
 		"message": "Tickets retrieved successfully",
 	})
 }
 
 func (c *Controller) Getbyid(w http.ResponseWriter, r *http.Request) {
-	// Extract the ticket ID from the URL path
 	ticketID := r.PathValue("id")
+
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
-		http.Error(w, "user not authenticated", http.StatusUnauthorized)
-		return
-	}
-	ticket, err := c.service.GetTicketByID(ticketID, userID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		appErrors.WriteError(w, appErrors.NewApiError(
+			appErrors.Unauthorized,
+			"User not authenticated",
+			"",
+		))
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	ticket, err := c.service.GetTicketByID(ticketID, userID)
+	if err != nil {
+		appErrors.WriteError(w, appErrors.NewApiError(
+			appErrors.InternalServerError,
+			"Failed to retrieve ticket",
+			err.Error(),
+		))
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"data":    ticket,
 		"message": "Ticket retrieved successfully",
 	})
@@ -94,26 +114,39 @@ func (c *Controller) Getbyid(w http.ResponseWriter, r *http.Request) {
 
 func (c *Controller) Update(w http.ResponseWriter, r *http.Request) {
 	var data UpdateTicketDTO
-	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
-	if !ok {
-		http.Error(w, "user not authenticated", http.StatusUnauthorized)
-		return
-	}
 
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
-		return
-	}
-	ticketID := r.PathValue("id")
-	ticket, err := c.service.UpdateTicket(ticketID, data, userID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		appErrors.WriteError(w, appErrors.NewApiError(
+			appErrors.BadRequest,
+			"Invalid request body",
+			"",
+		))
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok {
+		appErrors.WriteError(w, appErrors.NewApiError(
+			appErrors.Unauthorized,
+			"User not authenticated",
+			"",
+		))
+		return
+	}
+
+	ticketID := r.PathValue("id")
+
+	ticket, err := c.service.UpdateTicket(ticketID, data, userID)
+	if err != nil {
+		appErrors.WriteError(w, appErrors.NewApiError(
+			appErrors.BadRequest,
+			"Failed to update ticket",
+			err.Error(),
+		))
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"data":    ticket,
 		"message": "Ticket updated successfully",
 	})
@@ -121,20 +154,43 @@ func (c *Controller) Update(w http.ResponseWriter, r *http.Request) {
 
 func (c *Controller) Delete(w http.ResponseWriter, r *http.Request) {
 	ticketID := r.PathValue("id")
+
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
-		http.Error(w, "user not authenticated", http.StatusUnauthorized)
+		appErrors.WriteError(w, appErrors.NewApiError(
+			appErrors.Unauthorized,
+			"User not authenticated",
+			"",
+		))
 		return
 	}
-	err := c.service.DeleteTicket(ticketID, userID)
+
+	if err := c.service.DeleteTicket(ticketID, userID); err != nil {
+		appErrors.WriteError(w, appErrors.NewApiError(
+			appErrors.InternalServerError,
+			"Failed to delete ticket",
+			err.Error(),
+		))
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"message": "Ticket deleted successfully",
+	})
+}
+
+func writeJSON(w http.ResponseWriter, status int, data interface{}) {
+	body, err := json.Marshal(data)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		appErrors.WriteError(w, appErrors.NewApiError(
+			appErrors.InternalServerError,
+			"Failed to encode response",
+			"",
+		))
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"message": "Ticket deleted successfully",
-	})
+	w.WriteHeader(status)
+	_, _ = w.Write(append(body, '\n'))
 }
