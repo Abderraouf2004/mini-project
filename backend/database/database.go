@@ -10,22 +10,6 @@ import (
 
 var DB *gorm.DB
 
-// func ConnectDatabase() (*gorm.DB, error) {
-// 	err := godotenv.Load()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	dsn := os.Getenv("DATABASE_URL")
-
-// 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return db, nil
-// }
-
 func ConnectDatabase() (*gorm.DB, error) {
 	err := godotenv.Load()
 	if err != nil {

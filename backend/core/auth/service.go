@@ -42,21 +42,6 @@ func (s *Service) Signup(data SignupDTO) (*models.User, error) {
 	return createdUser, nil
 }
 
-// func (s *Service) Signin(data SigninDTO) (*models.User, error) {
-// 	user, err := s.repo.ReadByEmail(data.Email)
-
-// 	if err != nil || user == nil {
-// 		return nil, fmt.Errorf("invalid email or password")
-// 	}
-
-// 	isValid := CheckPassword(data.Password, user.PasswordHash)
-
-// 	if !isValid {
-// 		return nil, fmt.Errorf("invalid email or password")
-// 	}
-
-//		return user, nil
-//	}
 func (s *Service) Signin(data SigninDTO) (string, error) {
 	user, err := s.repo.ReadByEmail(data.Email)
 

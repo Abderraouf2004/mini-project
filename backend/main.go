@@ -1,12 +1,5 @@
 package main
 
-// import (
-// 	"encoding/json"
-// 	"fmt"
-// 	"mini-project/backend/database"
-// 	"mini-project/backend/models"
-// 	"net/http"
-// )
 import (
 	"encoding/json"
 	"fmt"

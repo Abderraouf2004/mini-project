@@ -1,6 +1,8 @@
 package tickets
 
-import "mini-project/backend/models"
+import (
+	"mini-project/backend/models"
+)
 
 type Service struct {
 	repo *Repository
@@ -33,6 +35,7 @@ func (s *Service) GetTicketByID(id string, userID string) (*models.Ticket, error
 	if err != nil {
 		return nil, err
 	}
+
 	return ticket, nil
 }
 
