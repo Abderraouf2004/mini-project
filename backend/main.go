@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"mini-project/backend/api"
 	"mini-project/backend/database"
 	"mini-project/backend/models"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -25,7 +29,6 @@ func main() {
 
 	api.RegisterRoutes(apiRouter)
 
-	// http.Handle("/api/", http.StripPrefix("/api", apiRouter))
 	mux := http.NewServeMux()
 	mux.Handle("/api/", http.StripPrefix("/api", apiRouter))
 
@@ -37,12 +40,42 @@ func main() {
 		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
+	// fmt.Println("Server running on port 8080")
+
+	// if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	// 	log.Fatal("Server error:", err)
+	// }
+	ctx, stop := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGTERM,
+	)
+	defer stop()
+
 	fmt.Println("Server running on port 8080")
 
-	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatal("Server error:", err)
+	go func() {
+		err := srv.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
+			log.Printf("Server error: %v", err)
+			stop()
+		}
+	}()
+
+	<-ctx.Done()
+
+	shutdownCtx, cancel := context.WithTimeout(
+		context.Background(),
+		10*time.Second,
+	)
+	defer cancel()
+
+	fmt.Println("Shutting down server...")
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Shutdown error: %v", err)
 	}
-	// if err = http.ListenAndServe(":8080", nil); err != nil {
-	// 	fmt.Println("Server error:", err)
-	// }
+
+	fmt.Println("Server stopped")
+
 }
