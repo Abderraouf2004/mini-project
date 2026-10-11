@@ -2,10 +2,13 @@ package tickets
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	appErrors "mini-project/backend/apperr"
 	"mini-project/backend/middleware"
+
+	"gorm.io/gorm"
 )
 
 type Controller struct {
@@ -98,10 +101,19 @@ func (c *Controller) Getbyid(w http.ResponseWriter, r *http.Request) {
 
 	ticket, err := c.service.GetTicketByID(ticketID, userID)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			appErrors.WriteError(w, appErrors.NewApiError(
+				appErrors.NotFound,
+				"Ticket not found",
+				"",
+			))
+			return
+		}
+
 		appErrors.WriteError(w, appErrors.NewApiError(
 			appErrors.InternalServerError,
 			"Failed to retrieve ticket",
-			err.Error(),
+			"",
 		))
 		return
 	}
@@ -138,10 +150,19 @@ func (c *Controller) Update(w http.ResponseWriter, r *http.Request) {
 
 	ticket, err := c.service.UpdateTicket(ticketID, data, userID)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			appErrors.WriteError(w, appErrors.NewApiError(
+				appErrors.NotFound,
+				"Ticket not found",
+				"",
+			))
+			return
+		}
+
 		appErrors.WriteError(w, appErrors.NewApiError(
-			appErrors.BadRequest,
+			appErrors.InternalServerError,
 			"Failed to update ticket",
-			err.Error(),
+			"",
 		))
 		return
 	}
@@ -166,10 +187,19 @@ func (c *Controller) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := c.service.DeleteTicket(ticketID, userID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			appErrors.WriteError(w, appErrors.NewApiError(
+				appErrors.NotFound,
+				"Ticket not found",
+				"",
+			))
+			return
+		}
+
 		appErrors.WriteError(w, appErrors.NewApiError(
 			appErrors.InternalServerError,
 			"Failed to delete ticket",
-			err.Error(),
+			"",
 		))
 		return
 	}

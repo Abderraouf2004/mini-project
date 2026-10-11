@@ -6,7 +6,7 @@ type Ticket struct {
 	ID          string    `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
 	Title       string    `gorm:"not null" json:"title"`
 	Description string    `gorm:"not null" json:"description"`
-	Status      string    `gorm:"not null;default:'open'" json:"status"`
+	Status      string    `gorm:"not null;default:'OPEN'" json:"status"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 

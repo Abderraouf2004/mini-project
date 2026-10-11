@@ -52,6 +52,10 @@ func (s *Service) UpdateTicket(id string, data UpdateTicketDTO, userID string) (
 		ticket.Description = data.Description
 	}
 
+	if data.Status != "" {
+		ticket.Status = data.Status
+	}
+
 	return s.repo.UpdateTicket(ticket)
 }
 
