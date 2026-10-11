@@ -9,5 +9,7 @@ type Ticket struct {
 	Status      string    `gorm:"not null;default:'open'" json:"status"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
-	UserID      string    `json:"user_id"`
+
+	UserID string `gorm:"type:uuid;not null;index" json:"user_id"`
+	User   User   `gorm:"foreignKey:UserID;references:ID" json:"-"`
 }

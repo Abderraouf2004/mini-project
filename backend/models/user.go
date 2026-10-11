@@ -8,5 +8,5 @@ type User struct {
 	PasswordHash string    `gorm:"not null" json:"-"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
-	Tickets      []Ticket  `gorm:"foreignKey:UserID" json:"tickets"`
+	Tickets      []Ticket  `gorm:"foreignKey:UserID;references:ID" json:"tickets"`
 }

@@ -3,6 +3,8 @@ package tickets
 import (
 	"mini-project/backend/database"
 	"mini-project/backend/models"
+
+	"gorm.io/gorm"
 )
 
 type Repository struct{}
@@ -40,11 +42,29 @@ func (r *Repository) GetTicketByID(id string, userID string) (*models.Ticket, er
 	return &ticket, nil
 }
 
+// func (r *Repository) UpdateTicket(ticket *models.Ticket) (*models.Ticket, error) {
+// 	err := database.DB.Save(ticket).Error
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return ticket, nil
+// }
+
 func (r *Repository) UpdateTicket(ticket *models.Ticket) (*models.Ticket, error) {
-	err := database.DB.Save(ticket).Error
-	if err != nil {
-		return nil, err
+	result := database.DB.
+		Model(&models.Ticket{}).
+		Where("id = ? AND user_id = ?", ticket.ID, ticket.UserID).
+		Select("Title", "Description", "Status", "UpdatedAt").
+		Updates(ticket)
+
+	if result.Error != nil {
+		return nil, result.Error
 	}
+
+	if result.RowsAffected == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+
 	return ticket, nil
 }
 
