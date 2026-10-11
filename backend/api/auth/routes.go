@@ -3,8 +3,8 @@ package auth
 import (
 	"net/http"
 
+	appErrors "mini-project/backend/apperr"
 	coreAuth "mini-project/backend/core/auth"
-	appErrors "mini-project/backend/errors"
 )
 
 func RegisterRoutes(mux *http.ServeMux) {

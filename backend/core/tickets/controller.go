@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	appErrors "mini-project/backend/errors"
+	appErrors "mini-project/backend/apperr"
 	"mini-project/backend/middleware"
 )
 

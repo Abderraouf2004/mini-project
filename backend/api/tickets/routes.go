@@ -3,8 +3,8 @@ package tickets
 import (
 	"net/http"
 
+	appErrors "mini-project/backend/apperr"
 	coreTickets "mini-project/backend/core/tickets"
-	appErrors "mini-project/backend/errors"
 	"mini-project/backend/middleware"
 )
 
