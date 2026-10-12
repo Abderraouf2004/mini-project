@@ -17,10 +17,6 @@ import (
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
-	if os.Getenv("JWT_SECRET") == "" {
-		slog.Error("JWT_SECRET is not configured")
-		os.Exit(1)
-	}
 
 	db, err := database.ConnectDatabase()
 	if err != nil {
