@@ -1,6 +1,78 @@
+// package tickets
+
+// import (
+// 	"mini-project/backend/models"
+// )
+
+// type Service struct {
+// 	repo *Repository
+// }
+
+// func NewService() *Service {
+// 	repo := NewRepository()
+
+// 	return &Service{
+// 		repo: repo,
+// 	}
+// }
+
+// func (s *Service) CreateTicket(data CreateTicketDTO, userID string) (*models.Ticket, error) {
+// 	ticket := &models.Ticket{
+// 		Title:       data.Title,
+// 		Description: data.Description,
+// 		UserID:      userID,
+// 	}
+
+// 	return s.repo.CreateTicket(ticket)
+// }
+
+// func (s *Service) GetTickets(userID string) ([]*models.Ticket, error) {
+// 	return s.repo.GetTickets(userID)
+// }
+
+// func (s *Service) GetTicketByID(id string, userID string) (*models.Ticket, error) {
+// 	ticket, err := s.repo.GetTicketByID(id, userID)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	return ticket, nil
+// }
+
+// func (s *Service) UpdateTicket(id string, data UpdateTicketDTO, userID string) (*models.Ticket, error) {
+// 	ticket, err := s.repo.GetTicketByID(id, userID)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	if data.Title != "" {
+// 		ticket.Title = data.Title
+// 	}
+// 	if data.Description != "" {
+// 		ticket.Description = data.Description
+// 	}
+
+// 	if data.Status != "" {
+// 		ticket.Status = data.Status
+// 	}
+
+// 	return s.repo.UpdateTicket(ticket)
+// }
+
+// func (s *Service) DeleteTicket(id string, userID string) error {
+// 	ticket, err := s.repo.GetTicketByID(id, userID)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	return s.repo.DeleteTicket(ticket)
+// }
+
 package tickets
 
 import (
+	"strings"
+
 	"mini-project/backend/models"
 )
 
@@ -9,17 +81,15 @@ type Service struct {
 }
 
 func NewService() *Service {
-	repo := NewRepository()
-
 	return &Service{
-		repo: repo,
+		repo: NewRepository(),
 	}
 }
 
 func (s *Service) CreateTicket(data CreateTicketDTO, userID string) (*models.Ticket, error) {
 	ticket := &models.Ticket{
-		Title:       data.Title,
-		Description: data.Description,
+		Title:       strings.TrimSpace(data.Title),
+		Description: strings.TrimSpace(data.Description),
 		UserID:      userID,
 	}
 
@@ -31,12 +101,7 @@ func (s *Service) GetTickets(userID string) ([]*models.Ticket, error) {
 }
 
 func (s *Service) GetTicketByID(id string, userID string) (*models.Ticket, error) {
-	ticket, err := s.repo.GetTicketByID(id, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	return ticket, nil
+	return s.repo.GetTicketByID(id, userID)
 }
 
 func (s *Service) UpdateTicket(id string, data UpdateTicketDTO, userID string) (*models.Ticket, error) {
@@ -46,10 +111,11 @@ func (s *Service) UpdateTicket(id string, data UpdateTicketDTO, userID string) (
 	}
 
 	if data.Title != "" {
-		ticket.Title = data.Title
+		ticket.Title = strings.TrimSpace(data.Title)
 	}
+
 	if data.Description != "" {
-		ticket.Description = data.Description
+		ticket.Description = strings.TrimSpace(data.Description)
 	}
 
 	if data.Status != "" {

@@ -1,8 +1,166 @@
+// package auth
+
+// import (
+// 	"encoding/json"
+// 	"log/slog"
+// 	"mini-project/backend/apperr"
+// 	"net/http"
+// 	"strings"
+// )
+
+// type Controller struct {
+// 	service *Service
+// }
+
+// func NewController() *Controller {
+// 	return &Controller{
+// 		service: NewService(),
+// 	}
+// }
+
+// func handleAuthError(w http.ResponseWriter, err error, operation string) {
+// 	switch err.Error() {
+// 	case "email already in use":
+// 		apperr.WriteError(w, apperr.NewApiError(
+// 			apperr.Conflict,
+// 			"Email already registered",
+// 			"",
+// 		))
+// 	case "invalid email or password":
+// 		apperr.WriteError(w, apperr.NewApiError(
+// 			apperr.Unauthorized,
+// 			"Invalid email or password",
+// 			"",
+// 		))
+// 	default:
+// 		slog.Error("Authentication operation failed",
+// 			"operation", operation,
+// 			"error", err,
+// 		)
+// 		apperr.WriteError(w, apperr.NewApiError(
+// 			apperr.InternalServerError,
+// 			"Internal server error",
+// 			"",
+// 		))
+// 	}
+// }
+// func (c *Controller) Signup(w http.ResponseWriter, r *http.Request) {
+// 	var data SignupDTO
+
+// 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+// 		http.Error(w, "invalid request body", http.StatusBadRequest)
+// 		return
+// 	}
+
+// 	tokens, err := c.service.Signup(data)
+// 	if err != nil {
+// 		handleAuthError(w, err, "signup")
+// 		return
+// 	}
+
+// 	w.Header().Set("Content-Type", "application/json")
+// 	w.WriteHeader(http.StatusCreated)
+
+// 	json.NewEncoder(w).Encode(map[string]interface{}{
+// 		"data":    tokens,
+// 		"message": "Sign Up successfully",
+// 	})
+// }
+
+// func (c *Controller) Signin(w http.ResponseWriter, r *http.Request) {
+// 	var data SigninDTO
+
+// 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+// 		http.Error(w, "invalid request body", http.StatusBadRequest)
+// 		return
+// 	}
+
+// 	tokens, err := c.service.Signin(data)
+// 	if err != nil {
+// 		handleAuthError(w, err, "signin")
+// 		return
+// 	}
+
+// 	w.Header().Set("Content-Type", "application/json")
+// 	w.WriteHeader(http.StatusOK)
+
+// 	json.NewEncoder(w).Encode(map[string]interface{}{
+// 		"data":    tokens,
+// 		"message": "Sign In successfully",
+// 	})
+// }
+
+// func (c *Controller) VerifyToken(w http.ResponseWriter, r *http.Request) {
+// 	authHeader := r.Header.Get("Authorization")
+// 	token := strings.TrimPrefix(authHeader, "Bearer ")
+
+// 	if token == authHeader || token == "" {
+// 		http.Error(w, "invalid authorization header", http.StatusUnauthorized)
+// 		return
+// 	}
+
+// 	user, err := c.service.VerifyToken(token)
+// 	if err != nil {
+// 		apperr.WriteError(w, apperr.NewApiError(
+// 			apperr.Unauthorized,
+// 			"Invalid or expired token",
+// 			"",
+// 		))
+// 		return
+// 	}
+
+// 	w.Header().Set("Content-Type", "application/json")
+// 	w.WriteHeader(http.StatusOK)
+
+// 	json.NewEncoder(w).Encode(map[string]interface{}{
+// 		"data": map[string]interface{}{
+// 			"user": map[string]interface{}{
+// 				"id": user.ID,
+// 			},
+// 		},
+// 		"message": "Token is valid",
+// 	})
+// }
+
+// func (c *Controller) Refresh(w http.ResponseWriter, r *http.Request) {
+// 	authHeader := r.Header.Get("Authorization")
+// 	token := strings.TrimPrefix(authHeader, "Bearer ")
+
+// 	if token == authHeader || token == "" {
+// 		http.Error(w, "invalid authorization header", http.StatusUnauthorized)
+// 		return
+// 	}
+
+// 	accessToken, err := c.service.RefreshToken(token)
+// 	if err != nil {
+// 		apperr.WriteError(w, apperr.NewApiError(
+// 			apperr.Unauthorized,
+// 			"Invalid or expired refresh token",
+// 			"",
+// 		))
+// 		return
+// 	}
+
+// 	w.Header().Set("Content-Type", "application/json")
+// 	w.WriteHeader(http.StatusOK)
+
+// 	json.NewEncoder(w).Encode(map[string]interface{}{
+// 		"data": map[string]string{
+// 			"accessToken": accessToken,
+// 		},
+// 		"message": "Token refreshed successfully",
+// 	})
+// }
+
 package auth
 
 import (
 	"encoding/json"
+	"errors"
+	"log/slog"
+	"mini-project/backend/apperr"
 	"net/http"
+	"strings"
 )
 
 type Controller struct {
@@ -10,32 +168,62 @@ type Controller struct {
 }
 
 func NewController() *Controller {
-	service := NewService()
-
 	return &Controller{
-		service: service,
+		service: NewService(),
+	}
+}
+
+func handleAuthError(w http.ResponseWriter, err error, operation string) {
+	switch {
+	case errors.Is(err, ErrEmailAlreadyInUse):
+		apperr.WriteError(w, apperr.NewApiError(
+			apperr.Conflict,
+			"Email already registered",
+			"",
+		))
+
+	case errors.Is(err, ErrInvalidCredentials):
+		apperr.WriteError(w, apperr.NewApiError(
+			apperr.Unauthorized,
+			"Invalid email or password",
+			"",
+		))
+
+	default:
+		slog.Error("Authentication operation failed",
+			"operation", operation,
+			"error", err,
+		)
+		apperr.WriteError(w, apperr.NewApiError(
+			apperr.InternalServerError,
+			"Internal server error",
+			"",
+		))
 	}
 }
 
 func (c *Controller) Signup(w http.ResponseWriter, r *http.Request) {
 	var data SignupDTO
 
-	err := json.NewDecoder(r.Body).Decode(&data)
-	if err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+		apperr.WriteError(w, apperr.NewApiError(
+			apperr.BadRequest,
+			"Invalid request body",
+			"",
+		))
 		return
 	}
 
 	tokens, err := c.service.Signup(data)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		handleAuthError(w, err, "signup")
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"data":    tokens,
 		"message": "Sign Up successfully",
 	})
@@ -44,25 +232,112 @@ func (c *Controller) Signup(w http.ResponseWriter, r *http.Request) {
 func (c *Controller) Signin(w http.ResponseWriter, r *http.Request) {
 	var data SigninDTO
 
-	err := json.NewDecoder(r.Body).Decode(&data)
-	if err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+		apperr.WriteError(w, apperr.NewApiError(
+			apperr.BadRequest,
+			"Invalid request body",
+			"",
+		))
 		return
 	}
 
-	accessToken, err := c.service.Signin(data)
+	tokens, err := c.service.Signin(data)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		handleAuthError(w, err, "signin")
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"data":    tokens,
+		"message": "Sign In successfully",
+	})
+}
+
+func (c *Controller) VerifyToken(w http.ResponseWriter, r *http.Request) {
+	authHeader := r.Header.Get("Authorization")
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+
+	if token == authHeader || token == "" {
+		apperr.WriteError(w, apperr.NewApiError(
+			apperr.Unauthorized,
+			"Invalid authorization header",
+			"",
+		))
+		return
+	}
+
+	user, err := c.service.VerifyToken(token)
+	if err != nil {
+		if errors.Is(err, ErrInvalidToken) {
+			apperr.WriteError(w, apperr.NewApiError(
+				apperr.Unauthorized,
+				"Invalid or expired token",
+				"",
+			))
+			return
+		}
+
+		slog.Error("Token verification failed", "error", err)
+		apperr.WriteError(w, apperr.NewApiError(
+			apperr.InternalServerError,
+			"Internal server error",
+			"",
+		))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"data": map[string]interface{}{
+			"user": map[string]interface{}{
+				"id": user.ID,
+			},
+		},
+		"message": "Token is valid",
+	})
+}
+
+func (c *Controller) Refresh(w http.ResponseWriter, r *http.Request) {
+	authHeader := r.Header.Get("Authorization")
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+
+	if token == authHeader || token == "" {
+		apperr.WriteError(w, apperr.NewApiError(
+			apperr.Unauthorized,
+			"Invalid authorization header",
+			"",
+		))
+		return
+	}
+
+	accessToken, err := c.service.RefreshToken(token)
+	if err != nil {
+		if errors.Is(err, ErrInvalidToken) {
+			apperr.WriteError(w, apperr.NewApiError(
+				apperr.Unauthorized,
+				"Invalid or expired refresh token",
+				"",
+			))
+			return
+		}
+
+		slog.Error("Token refresh failed", "error", err)
+		apperr.WriteError(w, apperr.NewApiError(
+			apperr.InternalServerError,
+			"Internal server error",
+			"",
+		))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"data": map[string]string{
 			"accessToken": accessToken,
 		},
-		"message": "Sign In successfully",
+		"message": "Token refreshed successfully",
 	})
 }

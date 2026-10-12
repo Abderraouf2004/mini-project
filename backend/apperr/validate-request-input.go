@@ -1,3 +1,40 @@
+// package apperr
+
+// import (
+// 	"bytes"
+// 	"encoding/json"
+// 	"io"
+// 	"net/http"
+// )
+
+// func ValidateRequestBody[T any](next http.Handler) http.Handler {
+// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// 		var data T
+
+// 		err := json.NewDecoder(r.Body).Decode(&data)
+// 		if err != nil {
+// 			http.Error(w, "invalid request body", http.StatusBadRequest)
+// 			return
+// 		}
+
+// 		err = ValidateObject(data)
+// 		if err != nil {
+// 			http.Error(w, err.Error(), http.StatusBadRequest)
+// 			return
+// 		}
+
+// 		body, err := json.Marshal(data)
+// 		if err != nil {
+// 			http.Error(w, "invalid request body", http.StatusBadRequest)
+// 			return
+// 		}
+
+// 		r.Body = io.NopCloser(bytes.NewReader(body))
+
+// 		next.ServeHTTP(w, r)
+// 	})
+// }
+
 package apperr
 
 import (
@@ -7,30 +44,56 @@ import (
 	"net/http"
 )
 
+const maxRequestBodySize = 1 << 20 // 1 MB
+
 func ValidateRequestBody[T any](next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySize)
+
 		var data T
 
-		err := json.NewDecoder(r.Body).Decode(&data)
-		if err != nil {
-			http.Error(w, "invalid request body", http.StatusBadRequest)
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+
+		if err := decoder.Decode(&data); err != nil {
+			WriteError(w, NewApiError(
+				BadRequest,
+				"Invalid request body",
+				"",
+			))
 			return
 		}
 
-		err = ValidateObject(data)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+		var extra any
+		if err := decoder.Decode(&extra); err != io.EOF {
+			WriteError(w, NewApiError(
+				BadRequest,
+				"Request must contain a single JSON value",
+				"",
+			))
+			return
+		}
+
+		if err := ValidateObject(data); err != nil {
+			WriteError(w, NewApiError(
+				ValidationError,
+				"Request validation failed",
+				err.Error(),
+			))
 			return
 		}
 
 		body, err := json.Marshal(data)
 		if err != nil {
-			http.Error(w, "invalid request body", http.StatusBadRequest)
+			WriteError(w, NewApiError(
+				InternalServerError,
+				"Internal server error",
+				"",
+			))
 			return
 		}
 
 		r.Body = io.NopCloser(bytes.NewReader(body))
-
 		next.ServeHTTP(w, r)
 	})
 }

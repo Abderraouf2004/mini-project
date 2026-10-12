@@ -38,13 +38,18 @@ func TestAuthMiddleware(t *testing.T) {
 			status: http.StatusUnauthorized,
 		},
 		{
-			name:   "valid token",
-			token:  "Bearer " + createTestToken(t, time.Now().Add(time.Minute)),
+			name:   "valid access token",
+			token:  "Bearer " + createTestToken(t, time.Now().Add(time.Minute), "access"),
 			status: http.StatusOK,
 		},
 		{
 			name:   "expired token",
-			token:  "Bearer " + createTestToken(t, time.Now().Add(-time.Minute)),
+			token:  "Bearer " + createTestToken(t, time.Now().Add(-time.Minute), "access"),
+			status: http.StatusUnauthorized,
+		},
+		{
+			name:   "refresh token rejected",
+			token:  "Bearer " + createTestToken(t, time.Now().Add(time.Hour), "refresh"),
 			status: http.StatusUnauthorized,
 		},
 	}
@@ -67,11 +72,12 @@ func TestAuthMiddleware(t *testing.T) {
 	}
 }
 
-func createTestToken(t *testing.T, expiresAt time.Time) string {
+func createTestToken(t *testing.T, expiresAt time.Time, tokenType string) string {
 	t.Helper()
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"id":  "user-123",
+		"typ": tokenType,
 		"exp": expiresAt.Unix(),
 	})
 
