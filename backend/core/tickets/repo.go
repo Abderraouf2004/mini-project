@@ -42,14 +42,6 @@ func (r *Repository) GetTicketByID(id string, userID string) (*models.Ticket, er
 	return &ticket, nil
 }
 
-// func (r *Repository) UpdateTicket(ticket *models.Ticket) (*models.Ticket, error) {
-// 	err := database.DB.Save(ticket).Error
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return ticket, nil
-// }
-
 func (r *Repository) UpdateTicket(ticket *models.Ticket) (*models.Ticket, error) {
 	result := database.DB.
 		Model(&models.Ticket{}).
@@ -69,5 +61,17 @@ func (r *Repository) UpdateTicket(ticket *models.Ticket) (*models.Ticket, error)
 }
 
 func (r *Repository) DeleteTicket(ticket *models.Ticket) error {
-	return database.DB.Delete(ticket).Error
+	result := database.DB.
+		Where("id = ? AND user_id = ?", ticket.ID, ticket.UserID).
+		Delete(&models.Ticket{})
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
+	return nil
 }
