@@ -23,6 +23,14 @@ func NewController() *Controller {
 }
 
 func ticketError(w http.ResponseWriter, err error, operation string) {
+	if errors.Is(err, ErrInvalidTicketID) {
+		appErrors.WriteError(w, appErrors.NewApiError(
+			appErrors.BadRequest,
+			"Invalid ticket ID",
+			"",
+		))
+		return
+	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		appErrors.WriteError(w, appErrors.NewApiError(
 			appErrors.NotFound,

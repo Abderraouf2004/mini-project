@@ -17,6 +17,11 @@ import (
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
+	if err := database.ConnectRedis(); err != nil {
+		slog.Error("Redis connection failed", "error", err)
+		os.Exit(1)
+	}
+	defer database.Redis.Close()
 
 	db, err := database.ConnectDatabase()
 	if err != nil {

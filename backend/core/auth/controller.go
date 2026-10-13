@@ -161,10 +161,12 @@ func (c *Controller) Refresh(w http.ResponseWriter, r *http.Request) {
 
 	accessToken, err := c.service.RefreshToken(token)
 	if err != nil {
-		if errors.Is(err, ErrInvalidToken) {
+
+		if errors.Is(err, ErrInvalidToken) ||
+			errors.Is(err, ErrTokenRevoked) {
 			apperr.WriteError(w, apperr.NewApiError(
 				apperr.Unauthorized,
-				"Invalid or expired refresh token",
+				"Invalid, expired, or revoked refresh token",
 				"",
 			))
 			return
@@ -185,5 +187,43 @@ func (c *Controller) Refresh(w http.ResponseWriter, r *http.Request) {
 			"accessToken": accessToken,
 		},
 		"message": "Token refreshed successfully",
+	})
+}
+
+func (c *Controller) SignOut(w http.ResponseWriter, r *http.Request) {
+	authHeader := r.Header.Get("Authorization")
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+
+	if token == authHeader || token == "" {
+		apperr.WriteError(w, apperr.NewApiError(
+			apperr.Unauthorized,
+			"Invalid authorization header",
+			"",
+		))
+		return
+	}
+
+	if err := c.service.SignOut(token); err != nil {
+		if errors.Is(err, ErrInvalidToken) {
+			apperr.WriteError(w, apperr.NewApiError(
+				apperr.Unauthorized,
+				"Invalid or expired refresh token",
+				"",
+			))
+			return
+		}
+
+		slog.Error("Sign out failed", "error", err)
+		apperr.WriteError(w, apperr.NewApiError(
+			apperr.InternalServerError,
+			"Internal server error",
+			"",
+		))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"message": "Signed out successfully",
 	})
 }

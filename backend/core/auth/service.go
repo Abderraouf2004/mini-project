@@ -8,13 +8,21 @@ import (
 
 	"mini-project/backend/models"
 
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"github.com/golang-jwt/jwt/v5"
+
+	"mini-project/backend/database"
+
+	"github.com/redis/go-redis/v9"
 )
 
 var (
 	ErrEmailAlreadyInUse  = errors.New("email already in use")
 	ErrInvalidCredentials = errors.New("invalid email or password")
 	ErrInvalidToken       = errors.New("invalid or expired token")
+	ErrTokenRevoked       = errors.New("token has been revoked")
 )
 
 type Service struct {
@@ -83,7 +91,32 @@ func (s *Service) verifyToken(tokenString, expectedType string) (*models.User, e
 	return user, nil
 }
 
+// func (s *Service) RefreshToken(refreshToken string) (string, error) {
+// 	user, err := s.verifyToken(refreshToken, "refresh")
+// 	if err != nil {
+// 		return "", err
+// 	}
+
+// 	return GenerateToken(user.ID, "access", 15*time.Minute)
+// }
+
 func (s *Service) RefreshToken(refreshToken string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	result, err := database.Redis.Get(
+		ctx,
+		blacklistKey(refreshToken),
+	).Result()
+
+	if err != nil && !errors.Is(err, redis.Nil) {
+		return "", fmt.Errorf("Redis blacklist check failed: %w", err)
+	}
+
+	if result != "" {
+		return "", ErrTokenRevoked
+	}
+
 	user, err := s.verifyToken(refreshToken, "refresh")
 	if err != nil {
 		return "", err
@@ -91,7 +124,6 @@ func (s *Service) RefreshToken(refreshToken string) (string, error) {
 
 	return GenerateToken(user.ID, "access", 15*time.Minute)
 }
-
 func (s *Service) Signup(data SignupDTO) (*TokenPair, error) {
 	existingUser, err := s.repo.ReadByEmail(data.Email)
 	if err != nil {
@@ -146,4 +178,59 @@ func (s *Service) generateTokens(userID string) (*TokenPair, error) {
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}, nil
+}
+
+func blacklistKey(token string) string {
+	hash := sha256.Sum256([]byte(token))
+	return "blacklist:" + hex.EncodeToString(hash[:])
+}
+func (s *Service) SignOut(refreshToken string) error {
+	if _, err := s.verifyToken(refreshToken, "refresh"); err != nil {
+		return err
+	}
+
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		return fmt.Errorf("JWT_SECRET is not configured")
+	}
+
+	token, err := jwt.Parse(
+		refreshToken,
+		func(token *jwt.Token) (interface{}, error) {
+			if token.Method != jwt.SigningMethodHS256 {
+				return nil, ErrInvalidToken
+			}
+			return []byte(secret), nil
+		},
+		jwt.WithValidMethods([]string{"HS256"}),
+		jwt.WithExpirationRequired(),
+	)
+	if err != nil || token == nil || !token.Valid {
+		return ErrInvalidToken
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return ErrInvalidToken
+	}
+
+	exp, err := claims.GetExpirationTime()
+	if err != nil || exp == nil {
+		return ErrInvalidToken
+	}
+
+	ttl := time.Until(exp.Time)
+	if ttl <= 0 {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	return database.Redis.Set(
+		ctx,
+		blacklistKey(refreshToken),
+		"revoked",
+		ttl,
+	).Err()
 }

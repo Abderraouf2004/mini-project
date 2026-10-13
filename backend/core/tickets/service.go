@@ -1,10 +1,14 @@
 package tickets
 
 import (
+	"errors"
 	"strings"
+	"uuid"
 
 	"mini-project/backend/models"
 )
+
+var ErrInvalidTicketID = errors.New("invalid ticket ID")
 
 type Service struct {
 	repo *Repository
@@ -31,10 +35,19 @@ func (s *Service) GetTickets(userID string) ([]*models.Ticket, error) {
 }
 
 func (s *Service) GetTicketByID(id string, userID string) (*models.Ticket, error) {
+	if _, err := uuid.Parse(id); err != nil {
+		return nil, ErrInvalidTicketID
+	}
 	return s.repo.GetTicketByID(id, userID)
 }
 
 func (s *Service) UpdateTicket(id string, data UpdateTicketDTO, userID string) (*models.Ticket, error) {
+	if strings.TrimSpace(data.Title) == "" &&
+		strings.TrimSpace(data.Description) == "" &&
+		strings.TrimSpace(data.Status) == "" {
+		return nil, errors.New("at least one field must be provided")
+	}
+
 	ticket, err := s.repo.GetTicketByID(id, userID)
 	if err != nil {
 		return nil, err

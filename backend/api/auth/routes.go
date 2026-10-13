@@ -54,5 +54,6 @@ func RegisterRoutes(mux *http.ServeMux) {
 			http.HandlerFunc(controller.Signin),
 		),
 	)
+	mux.HandleFunc("POST /auth/signout", controller.SignOut)
 
 }
