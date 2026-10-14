@@ -6,12 +6,14 @@ import (
 	"os"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 )
 
 var Redis *redis.Client
 
 func ConnectRedis() error {
+	_ = godotenv.Load()
 	redisURL := os.Getenv("REDIS_URL")
 	if redisURL == "" {
 		return errors.New("REDIS_URL is not configured")

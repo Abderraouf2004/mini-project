@@ -35,6 +35,14 @@ func handleAuthError(w http.ResponseWriter, err error, operation string) {
 			"",
 		))
 
+	case errors.Is(err, ErrInvalidToken),
+		errors.Is(err, ErrTokenRevoked):
+		apperr.WriteError(w, apperr.NewApiError(
+			apperr.Unauthorized,
+			"Invalid, expired, or revoked token",
+			"",
+		))
+
 	default:
 		slog.Error("Authentication operation failed",
 			"operation", operation,
@@ -104,9 +112,9 @@ func (c *Controller) Signin(w http.ResponseWriter, r *http.Request) {
 
 func (c *Controller) VerifyToken(w http.ResponseWriter, r *http.Request) {
 	authHeader := r.Header.Get("Authorization")
-	token := strings.TrimPrefix(authHeader, "Bearer ")
+	token, ok := strings.CutPrefix(authHeader, "Bearer ")
 
-	if token == authHeader || token == "" {
+	if !ok || token == "" || strings.Contains(token, " ") {
 		apperr.WriteError(w, apperr.NewApiError(
 			apperr.Unauthorized,
 			"Invalid authorization header",
@@ -117,10 +125,11 @@ func (c *Controller) VerifyToken(w http.ResponseWriter, r *http.Request) {
 
 	user, err := c.service.VerifyToken(token)
 	if err != nil {
-		if errors.Is(err, ErrInvalidToken) {
+		if errors.Is(err, ErrInvalidToken) ||
+			errors.Is(err, ErrTokenRevoked) {
 			apperr.WriteError(w, apperr.NewApiError(
 				apperr.Unauthorized,
-				"Invalid or expired token",
+				"Invalid, expired, or revoked token",
 				"",
 			))
 			return
@@ -148,9 +157,9 @@ func (c *Controller) VerifyToken(w http.ResponseWriter, r *http.Request) {
 
 func (c *Controller) Refresh(w http.ResponseWriter, r *http.Request) {
 	authHeader := r.Header.Get("Authorization")
-	token := strings.TrimPrefix(authHeader, "Bearer ")
+	token, ok := strings.CutPrefix(authHeader, "Bearer ")
 
-	if token == authHeader || token == "" {
+	if !ok || token == "" || strings.Contains(token, " ") {
 		apperr.WriteError(w, apperr.NewApiError(
 			apperr.Unauthorized,
 			"Invalid authorization header",
@@ -159,14 +168,13 @@ func (c *Controller) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accessToken, err := c.service.RefreshToken(token)
+	tokens, err := c.service.RefreshToken(token)
 	if err != nil {
-
 		if errors.Is(err, ErrInvalidToken) ||
 			errors.Is(err, ErrTokenRevoked) {
 			apperr.WriteError(w, apperr.NewApiError(
 				apperr.Unauthorized,
-				"Invalid, expired, or revoked refresh token",
+				"Invalid, expired, or revoked token",
 				"",
 			))
 			return
@@ -183,18 +191,16 @@ func (c *Controller) Refresh(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"data": map[string]string{
-			"accessToken": accessToken,
-		},
+		"data":    tokens,
 		"message": "Token refreshed successfully",
 	})
 }
 
 func (c *Controller) SignOut(w http.ResponseWriter, r *http.Request) {
 	authHeader := r.Header.Get("Authorization")
-	token := strings.TrimPrefix(authHeader, "Bearer ")
+	token, ok := strings.CutPrefix(authHeader, "Bearer ")
 
-	if token == authHeader || token == "" {
+	if !ok || token == "" || strings.Contains(token, " ") {
 		apperr.WriteError(w, apperr.NewApiError(
 			apperr.Unauthorized,
 			"Invalid authorization header",
@@ -204,10 +210,11 @@ func (c *Controller) SignOut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := c.service.SignOut(token); err != nil {
-		if errors.Is(err, ErrInvalidToken) {
+		if errors.Is(err, ErrInvalidToken) ||
+			errors.Is(err, ErrTokenRevoked) {
 			apperr.WriteError(w, apperr.NewApiError(
 				apperr.Unauthorized,
-				"Invalid or expired refresh token",
+				"Invalid, expired, or revoked token",
 				"",
 			))
 			return

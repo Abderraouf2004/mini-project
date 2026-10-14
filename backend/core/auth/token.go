@@ -8,7 +8,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func GenerateToken(userID, tokenType string, duration time.Duration) (string, error) {
+func GenerateToken(userID string, duration time.Duration) (string, error) {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
 		return "", fmt.Errorf("JWT_SECRET is not configured")
@@ -18,13 +18,8 @@ func GenerateToken(userID, tokenType string, duration time.Duration) (string, er
 		return "", fmt.Errorf("user ID is required")
 	}
 
-	if tokenType != "access" && tokenType != "refresh" {
-		return "", fmt.Errorf("invalid token type")
-	}
-
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"id":  userID,
-		"typ": tokenType,
 		"exp": time.Now().Add(duration).Unix(),
 	})
 

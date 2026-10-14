@@ -11,6 +11,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+
 	"github.com/golang-jwt/jwt/v5"
 
 	"mini-project/backend/database"
@@ -41,10 +42,11 @@ type TokenPair struct {
 }
 
 func (s *Service) VerifyToken(tokenString string) (*models.User, error) {
-	return s.verifyToken(tokenString, "access")
+	return s.verifyToken(tokenString)
 }
 
-func (s *Service) verifyToken(tokenString, expectedType string) (*models.User, error) {
+
+func (s *Service) verifyToken(tokenString string) (*models.User, error) {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
 		return nil, fmt.Errorf("JWT_SECRET is not configured")
@@ -75,9 +77,20 @@ func (s *Service) verifyToken(tokenString, expectedType string) (*models.User, e
 		return nil, ErrInvalidToken
 	}
 
-	tokenType, ok := claims["typ"].(string)
-	if !ok || tokenType != expectedType {
-		return nil, ErrInvalidToken
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	result, err := database.Redis.Get(
+		ctx,
+		blacklistKey(tokenString),
+	).Result()
+
+	if err != nil && !errors.Is(err, redis.Nil) {
+		return nil, fmt.Errorf("Redis blacklist check failed: %w", err)
+	}
+
+	if result != "" {
+		return nil, ErrTokenRevoked
 	}
 
 	user, err := s.repo.ReadByID(userID)
@@ -91,39 +104,43 @@ func (s *Service) verifyToken(tokenString, expectedType string) (*models.User, e
 	return user, nil
 }
 
-// func (s *Service) RefreshToken(refreshToken string) (string, error) {
-// 	user, err := s.verifyToken(refreshToken, "refresh")
-// 	if err != nil {
-// 		return "", err
-// 	}
 
-// 	return GenerateToken(user.ID, "access", 15*time.Minute)
-// }
 
-func (s *Service) RefreshToken(refreshToken string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
 
-	result, err := database.Redis.Get(
-		ctx,
-		blacklistKey(refreshToken),
-	).Result()
 
-	if err != nil && !errors.Is(err, redis.Nil) {
-		return "", fmt.Errorf("Redis blacklist check failed: %w", err)
-	}
-
-	if result != "" {
-		return "", ErrTokenRevoked
-	}
-
-	user, err := s.verifyToken(refreshToken, "refresh")
+func (s *Service) RefreshToken(refreshToken string) (*TokenPair, error) {
+	user, err := s.verifyToken(refreshToken)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return GenerateToken(user.ID, "access", 15*time.Minute)
+	accessToken, err := GenerateToken(
+		user.ID,
+		15*time.Minute,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	newRefreshToken, err := GenerateToken(
+		user.ID,
+		7*24*time.Hour,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.revokeToken(refreshToken); err != nil {
+		return nil, err
+	}
+
+	return &TokenPair{
+		AccessToken:  accessToken,
+		RefreshToken: newRefreshToken,
+	}, nil
 }
+
+
 func (s *Service) Signup(data SignupDTO) (*TokenPair, error) {
 	existingUser, err := s.repo.ReadByEmail(data.Email)
 	if err != nil {
@@ -164,12 +181,12 @@ func (s *Service) Signin(data SigninDTO) (*TokenPair, error) {
 }
 
 func (s *Service) generateTokens(userID string) (*TokenPair, error) {
-	accessToken, err := GenerateToken(userID, "access", 15*time.Minute)
+	accessToken, err := GenerateToken(userID, 15*time.Minute)
 	if err != nil {
 		return nil, err
 	}
 
-	refreshToken, err := GenerateToken(userID, "refresh", 7*24*time.Hour)
+	refreshToken, err := GenerateToken(userID, 7*24*time.Hour)
 	if err != nil {
 		return nil, err
 	}
@@ -184,18 +201,15 @@ func blacklistKey(token string) string {
 	hash := sha256.Sum256([]byte(token))
 	return "blacklist:" + hex.EncodeToString(hash[:])
 }
-func (s *Service) SignOut(refreshToken string) error {
-	if _, err := s.verifyToken(refreshToken, "refresh"); err != nil {
-		return err
-	}
 
+func (s *Service) revokeToken(tokenString string) error {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
 		return fmt.Errorf("JWT_SECRET is not configured")
 	}
 
 	token, err := jwt.Parse(
-		refreshToken,
+		tokenString,
 		func(token *jwt.Token) (interface{}, error) {
 			if token.Method != jwt.SigningMethodHS256 {
 				return nil, ErrInvalidToken
@@ -229,8 +243,15 @@ func (s *Service) SignOut(refreshToken string) error {
 
 	return database.Redis.Set(
 		ctx,
-		blacklistKey(refreshToken),
-		"revoked",
+		blacklistKey(tokenString),
+		"blacklisted",
 		ttl,
 	).Err()
+}
+
+
+
+
+func (s *Service) SignOut(tokenString string) error {
+	return s.revokeToken(tokenString)
 }
