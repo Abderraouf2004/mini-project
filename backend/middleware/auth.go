@@ -2,11 +2,17 @@ package middleware
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"os"
 	"strings"
+	"time"
+
+	"mini-project/backend/database"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/redis/go-redis/v9"
 )
 
 type contextKey string
@@ -28,8 +34,10 @@ func Auth(next http.Handler) http.Handler {
 			return
 		}
 
+		tokenString := parts[1]
+
 		token, err := jwt.Parse(
-			parts[1],
+			tokenString,
 			func(token *jwt.Token) (interface{}, error) {
 				if token.Method != jwt.SigningMethodHS256 {
 					return nil, jwt.ErrSignatureInvalid
@@ -57,13 +65,25 @@ func Auth(next http.Handler) http.Handler {
 			return
 		}
 
-		tokenType, ok := claims["typ"].(string)
-		if !ok || tokenType != "access" {
-			http.Error(w, "invalid token type", http.StatusUnauthorized)
+		hash := sha256.Sum256([]byte(tokenString))
+		key := "blacklist:" + hex.EncodeToString(hash[:])
+
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		defer cancel()
+
+		result, err := database.Redis.Get(ctx, key).Result()
+
+		if err != nil && err != redis.Nil {
+			http.Error(w, "authentication service unavailable", http.StatusServiceUnavailable)
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), UserIDKey, userID)
+		if result != "" {
+			http.Error(w, "token has been revoked", http.StatusUnauthorized)
+			return
+		}
+
+		ctx = context.WithValue(r.Context(), UserIDKey, userID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

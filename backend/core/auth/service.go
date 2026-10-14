@@ -108,10 +108,11 @@ func (s *Service) verifyToken(tokenString string) (*models.User, error) {
 
 
 
-func (s *Service) RefreshToken(refreshToken string) (*TokenPair, error) {
-	user, err := s.verifyToken(refreshToken)
+
+func (s *Service) RefreshToken(Token string) (string, error) {
+	user, err := s.verifyToken(Token)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	accessToken, err := GenerateToken(
@@ -119,26 +120,12 @@ func (s *Service) RefreshToken(refreshToken string) (*TokenPair, error) {
 		15*time.Minute,
 	)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	newRefreshToken, err := GenerateToken(
-		user.ID,
-		7*24*time.Hour,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := s.revokeToken(refreshToken); err != nil {
-		return nil, err
-	}
-
-	return &TokenPair{
-		AccessToken:  accessToken,
-		RefreshToken: newRefreshToken,
-	}, nil
+	return accessToken, nil
 }
+
 
 
 func (s *Service) Signup(data SignupDTO) (*TokenPair, error) {

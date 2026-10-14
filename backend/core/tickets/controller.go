@@ -31,6 +31,7 @@ func ticketError(w http.ResponseWriter, err error, operation string) {
 		))
 		return
 	}
+
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		appErrors.WriteError(w, appErrors.NewApiError(
 			appErrors.NotFound,
@@ -67,9 +68,8 @@ func authenticatedUserID(w http.ResponseWriter, r *http.Request) (string, bool) 
 }
 
 func (c *Controller) Create(w http.ResponseWriter, r *http.Request) {
-	var data CreateTicketDTO
-
-	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+	data, ok := appErrors.ValidatedBody[CreateTicketDTO](r)
+	if !ok {
 		appErrors.WriteError(w, appErrors.NewApiError(
 			appErrors.BadRequest,
 			"Invalid request body",
@@ -132,9 +132,8 @@ func (c *Controller) Getbyid(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) Update(w http.ResponseWriter, r *http.Request) {
-	var data UpdateTicketDTO
-
-	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+	data, ok := appErrors.ValidatedBody[UpdateTicketDTO](r)
+	if !ok {
 		appErrors.WriteError(w, appErrors.NewApiError(
 			appErrors.BadRequest,
 			"Invalid request body",

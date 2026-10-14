@@ -1,6 +1,7 @@
 package apperr
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -85,4 +86,23 @@ func jsonFieldName(data any, fieldName string) string {
 	}
 
 	return name
+}
+
+func ValidateAndConvert[T any](data any) (T, error) {
+	var result T
+
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return result, err
+	}
+
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return result, err
+	}
+
+	if err := ValidateObject(result); err != nil {
+		return result, NewApiError(ValidationError, "Response validation failed", err.Error())
+	}
+
+	return result, nil
 }

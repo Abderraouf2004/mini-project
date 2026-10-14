@@ -57,9 +57,8 @@ func handleAuthError(w http.ResponseWriter, err error, operation string) {
 }
 
 func (c *Controller) Signup(w http.ResponseWriter, r *http.Request) {
-	var data SignupDTO
-
-	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+	data, ok := apperr.ValidatedBody[SignupDTO](r)
+	if !ok {
 		apperr.WriteError(w, apperr.NewApiError(
 			apperr.BadRequest,
 			"Invalid request body",
@@ -84,9 +83,8 @@ func (c *Controller) Signup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) Signin(w http.ResponseWriter, r *http.Request) {
-	var data SigninDTO
-
-	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+	data, ok := apperr.ValidatedBody[SigninDTO](r)
+	if !ok {
 		apperr.WriteError(w, apperr.NewApiError(
 			apperr.BadRequest,
 			"Invalid request body",
@@ -168,7 +166,7 @@ func (c *Controller) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokens, err := c.service.RefreshToken(token)
+	accessToken, err := c.service.RefreshToken(token)
 	if err != nil {
 		if errors.Is(err, ErrInvalidToken) ||
 			errors.Is(err, ErrTokenRevoked) {
@@ -191,7 +189,9 @@ func (c *Controller) Refresh(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"data":    tokens,
+		"data": map[string]string{
+			"accessToken": accessToken,
+		},
 		"message": "Token refreshed successfully",
 	})
 }
