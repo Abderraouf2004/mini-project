@@ -101,7 +101,8 @@ func ValidateAndConvert[T any](data any) (T, error) {
 	}
 
 	if err := ValidateObject(result); err != nil {
-		return result, NewApiError(ValidationError, "Response validation failed", err.Error())
+		// return result, NewApiError(ValidationError, "Response validation failed", err.Error())
+		return result, fmt.Errorf("response DTO validation: %w", err)
 	}
 
 	return result, nil

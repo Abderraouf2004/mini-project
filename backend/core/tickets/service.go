@@ -2,6 +2,7 @@ package tickets
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"uuid"
 
@@ -69,9 +70,13 @@ func (s *Service) GetTicketByID(id string, userID string) (*DTO, error) {
 		return nil, err
 	}
 
+	// response, err := apperr.ValidateAndConvert[DTO](ticket)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	response, err := apperr.ValidateAndConvert[DTO](ticket)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("validate ticket response: %w", err)
 	}
 
 	return &response, nil
