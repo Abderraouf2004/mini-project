@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
-	"mini-project/backend/apperr"
 	"net/http"
 	"strings"
+
+	"mini-project/backend/apperr"
 )
 
 type Controller struct {
@@ -35,6 +36,13 @@ func handleAuthError(w http.ResponseWriter, err error, operation string) {
 			"",
 		))
 
+	case errors.Is(err, ErrAuthServiceUnavailable):
+		apperr.WriteError(w, apperr.NewApiError(
+			apperr.ServiceUnavailable,
+			"Authentication service temporarily unavailable",
+			"",
+		))
+
 	case errors.Is(err, ErrInvalidToken),
 		errors.Is(err, ErrTokenRevoked):
 		apperr.WriteError(w, apperr.NewApiError(
@@ -48,6 +56,7 @@ func handleAuthError(w http.ResponseWriter, err error, operation string) {
 			"operation", operation,
 			"error", err,
 		)
+
 		apperr.WriteError(w, apperr.NewApiError(
 			apperr.InternalServerError,
 			"Internal server error",
@@ -123,8 +132,16 @@ func (c *Controller) VerifyToken(w http.ResponseWriter, r *http.Request) {
 
 	user, err := c.service.VerifyToken(token)
 	if err != nil {
-		if errors.Is(err, ErrInvalidToken) ||
-			errors.Is(err, ErrTokenRevoked) {
+		if errors.Is(err, ErrAuthServiceUnavailable) {
+			apperr.WriteError(w, apperr.NewApiError(
+				apperr.ServiceUnavailable,
+				"Authentication service temporarily unavailable",
+				"",
+			))
+			return
+		}
+
+		if errors.Is(err, ErrInvalidToken) || errors.Is(err, ErrTokenRevoked) {
 			apperr.WriteError(w, apperr.NewApiError(
 				apperr.Unauthorized,
 				"Invalid, expired, or revoked token",
@@ -168,8 +185,16 @@ func (c *Controller) Refresh(w http.ResponseWriter, r *http.Request) {
 
 	accessToken, err := c.service.RefreshToken(token)
 	if err != nil {
-		if errors.Is(err, ErrInvalidToken) ||
-			errors.Is(err, ErrTokenRevoked) {
+		if errors.Is(err, ErrAuthServiceUnavailable) {
+			apperr.WriteError(w, apperr.NewApiError(
+				apperr.ServiceUnavailable,
+				"Authentication service temporarily unavailable",
+				"",
+			))
+			return
+		}
+
+		if errors.Is(err, ErrInvalidToken) || errors.Is(err, ErrTokenRevoked) {
 			apperr.WriteError(w, apperr.NewApiError(
 				apperr.Unauthorized,
 				"Invalid, expired, or revoked token",
@@ -210,8 +235,16 @@ func (c *Controller) SignOut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := c.service.SignOut(token); err != nil {
-		if errors.Is(err, ErrInvalidToken) ||
-			errors.Is(err, ErrTokenRevoked) {
+		if errors.Is(err, ErrAuthServiceUnavailable) {
+			apperr.WriteError(w, apperr.NewApiError(
+				apperr.ServiceUnavailable,
+				"Authentication service temporarily unavailable",
+				"",
+			))
+			return
+		}
+
+		if errors.Is(err, ErrInvalidToken) || errors.Is(err, ErrTokenRevoked) {
 			apperr.WriteError(w, apperr.NewApiError(
 				apperr.Unauthorized,
 				"Invalid, expired, or revoked token",

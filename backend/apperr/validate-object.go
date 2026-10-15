@@ -2,6 +2,7 @@ package apperr
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -39,25 +40,29 @@ func ValidateObject[T any](data T) error {
 		switch fieldError.Tag() {
 		case "required":
 			messages = append(messages, fmt.Sprintf("%s is required", field))
+
 		case "notblank":
 			messages = append(messages, fmt.Sprintf("%s cannot be blank", field))
+
 		case "max":
 			messages = append(messages, fmt.Sprintf(
 				"%s must be at most %s characters",
 				field,
 				fieldError.Param(),
 			))
+
 		case "oneof":
 			messages = append(messages, fmt.Sprintf(
 				"%s has an invalid value",
 				field,
 			))
+
 		default:
 			messages = append(messages, fmt.Sprintf("%s is invalid", field))
 		}
 	}
 
-	return fmt.Errorf("%s", strings.Join(messages, "; "))
+	return errors.New(strings.Join(messages, "; "))
 }
 
 func jsonFieldName(data any, fieldName string) string {
@@ -101,7 +106,6 @@ func ValidateAndConvert[T any](data any) (T, error) {
 	}
 
 	if err := ValidateObject(result); err != nil {
-		// return result, NewApiError(ValidationError, "Response validation failed", err.Error())
 		return result, fmt.Errorf("response DTO validation: %w", err)
 	}
 

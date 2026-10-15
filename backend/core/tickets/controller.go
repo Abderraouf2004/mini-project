@@ -32,6 +32,15 @@ func ticketError(w http.ResponseWriter, err error, operation string) {
 		return
 	}
 
+	if errors.Is(err, ErrEmptyTicketUpdate) || errors.Is(err, ErrInvalidTicketUpdate) {
+		appErrors.WriteError(w, appErrors.NewApiError(
+			appErrors.ValidationError,
+			"Invalid ticket update",
+			"Provide at least one valid field to update",
+		))
+		return
+	}
+
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		appErrors.WriteError(w, appErrors.NewApiError(
 			appErrors.NotFound,

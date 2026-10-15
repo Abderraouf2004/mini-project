@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"net/http"
 	"os"
 	"strings"
@@ -65,6 +66,11 @@ func Auth(next http.Handler) http.Handler {
 			return
 		}
 
+		if database.Redis == nil {
+			http.Error(w, "authentication service unavailable", http.StatusServiceUnavailable)
+			return
+		}
+
 		hash := sha256.Sum256([]byte(tokenString))
 		key := "blacklist:" + hex.EncodeToString(hash[:])
 
@@ -73,7 +79,7 @@ func Auth(next http.Handler) http.Handler {
 
 		result, err := database.Redis.Get(ctx, key).Result()
 
-		if err != nil && err != redis.Nil {
+		if err != nil && !errors.Is(err, redis.Nil) {
 			http.Error(w, "authentication service unavailable", http.StatusServiceUnavailable)
 			return
 		}

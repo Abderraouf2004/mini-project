@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"errors"
+
 	"mini-project/backend/database"
 	"mini-project/backend/models"
 
@@ -30,7 +32,7 @@ func (r *Repository) ReadByEmail(email string) (*models.User, error) {
 		First(&user).Error
 
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
 
@@ -48,7 +50,7 @@ func (r *Repository) ReadByID(id string) (*models.User, error) {
 		First(&user).Error
 
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
 

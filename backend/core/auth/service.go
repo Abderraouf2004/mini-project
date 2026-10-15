@@ -1,29 +1,27 @@
 package auth
 
 import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
 	"time"
 
+	"mini-project/backend/database"
 	"mini-project/backend/models"
 
-	"context"
-	"crypto/sha256"
-	"encoding/hex"
-
 	"github.com/golang-jwt/jwt/v5"
-
-	"mini-project/backend/database"
-
 	"github.com/redis/go-redis/v9"
 )
 
 var (
-	ErrEmailAlreadyInUse  = errors.New("email already in use")
-	ErrInvalidCredentials = errors.New("invalid email or password")
-	ErrInvalidToken       = errors.New("invalid or expired token")
-	ErrTokenRevoked       = errors.New("token has been revoked")
+	ErrEmailAlreadyInUse      = errors.New("email already in use")
+	ErrInvalidCredentials     = errors.New("invalid email or password")
+	ErrInvalidToken           = errors.New("invalid or expired token")
+	ErrTokenRevoked           = errors.New("token has been revoked")
+	ErrAuthServiceUnavailable = errors.New("authentication service unavailable")
 )
 
 type Service struct {
@@ -44,7 +42,6 @@ type TokenPair struct {
 func (s *Service) VerifyToken(tokenString string) (*models.User, error) {
 	return s.verifyToken(tokenString)
 }
-
 
 func (s *Service) verifyToken(tokenString string) (*models.User, error) {
 	secret := os.Getenv("JWT_SECRET")
@@ -77,6 +74,10 @@ func (s *Service) verifyToken(tokenString string) (*models.User, error) {
 		return nil, ErrInvalidToken
 	}
 
+	if database.Redis == nil {
+		return nil, ErrAuthServiceUnavailable
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -86,7 +87,7 @@ func (s *Service) verifyToken(tokenString string) (*models.User, error) {
 	).Result()
 
 	if err != nil && !errors.Is(err, redis.Nil) {
-		return nil, fmt.Errorf("Redis blacklist check failed: %w", err)
+		return nil, fmt.Errorf("%w: Redis blacklist check failed: %v", ErrAuthServiceUnavailable, err)
 	}
 
 	if result != "" {
@@ -104,11 +105,6 @@ func (s *Service) verifyToken(tokenString string) (*models.User, error) {
 	return user, nil
 }
 
-
-
-
-
-
 func (s *Service) RefreshToken(Token string) (string, error) {
 	user, err := s.verifyToken(Token)
 	if err != nil {
@@ -125,8 +121,6 @@ func (s *Service) RefreshToken(Token string) (string, error) {
 
 	return accessToken, nil
 }
-
-
 
 func (s *Service) Signup(data SignupDTO) (*TokenPair, error) {
 	existingUser, err := s.repo.ReadByEmail(data.Email)
@@ -149,6 +143,9 @@ func (s *Service) Signup(data SignupDTO) (*TokenPair, error) {
 
 	createdUser, err := s.repo.Signup(user)
 	if err != nil {
+		if isUniqueConstraintViolation(err) {
+			return nil, ErrEmailAlreadyInUse
+		}
 		return nil, err
 	}
 
@@ -182,6 +179,11 @@ func (s *Service) generateTokens(userID string) (*TokenPair, error) {
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}, nil
+}
+
+func isUniqueConstraintViolation(err error) bool {
+	var sqlStateError interface{ SQLState() string }
+	return errors.As(err, &sqlStateError) && sqlStateError.SQLState() == "23505"
 }
 
 func blacklistKey(token string) string {
@@ -225,19 +227,24 @@ func (s *Service) revokeToken(tokenString string) error {
 		return nil
 	}
 
+	if database.Redis == nil {
+		return ErrAuthServiceUnavailable
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	return database.Redis.Set(
+	if err := database.Redis.Set(
 		ctx,
 		blacklistKey(tokenString),
 		"blacklisted",
 		ttl,
-	).Err()
+	).Err(); err != nil {
+		return fmt.Errorf("%w: Redis token revocation failed: %v", ErrAuthServiceUnavailable, err)
+	}
+
+	return nil
 }
-
-
-
 
 func (s *Service) SignOut(tokenString string) error {
 	return s.revokeToken(tokenString)

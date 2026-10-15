@@ -1,16 +1,33 @@
 package tickets
 
 import (
+	"encoding/hex"
 	"errors"
-	"fmt"
 	"strings"
-	"uuid"
 
 	"mini-project/backend/apperr"
 	"mini-project/backend/models"
 )
 
-var ErrInvalidTicketID = errors.New("invalid ticket ID")
+var (
+	ErrInvalidTicketID     = errors.New("invalid ticket ID")
+	ErrEmptyTicketUpdate   = errors.New("at least one field must be provided")
+	ErrInvalidTicketUpdate = errors.New("invalid ticket update")
+)
+
+func isValidUUID(id string) bool {
+	if len(id) != 36 || id[8] != '-' || id[13] != '-' || id[18] != '-' || id[23] != '-' {
+		return false
+	}
+
+	compact := strings.ReplaceAll(id, "-", "")
+	if len(compact) != 32 {
+		return false
+	}
+
+	_, err := hex.DecodeString(compact)
+	return err == nil
+}
 
 type Service struct {
 	repo *Repository
@@ -49,11 +66,13 @@ func (s *Service) GetTickets(userID string) ([]*DTO, error) {
 	}
 
 	responses := make([]*DTO, 0, len(tickets))
+
 	for _, ticket := range tickets {
 		response, err := apperr.ValidateAndConvert[DTO](ticket)
 		if err != nil {
 			return nil, err
 		}
+
 		responses = append(responses, &response)
 	}
 
@@ -61,7 +80,7 @@ func (s *Service) GetTickets(userID string) ([]*DTO, error) {
 }
 
 func (s *Service) GetTicketByID(id string, userID string) (*DTO, error) {
-	if _, err := uuid.Parse(id); err != nil {
+	if !isValidUUID(id) {
 		return nil, ErrInvalidTicketID
 	}
 
@@ -70,24 +89,27 @@ func (s *Service) GetTicketByID(id string, userID string) (*DTO, error) {
 		return nil, err
 	}
 
-	// response, err := apperr.ValidateAndConvert[DTO](ticket)
-	// if err != nil {
-	// 	return nil, err
-	// }
 	response, err := apperr.ValidateAndConvert[DTO](ticket)
 	if err != nil {
-		return nil, fmt.Errorf("validate ticket response: %w", err)
+		return nil, err
 	}
 
 	return &response, nil
-
 }
 
 func (s *Service) UpdateTicket(id string, data UpdateTicketDTO, userID string) (*DTO, error) {
+	if !isValidUUID(id) {
+		return nil, ErrInvalidTicketID
+	}
+
+	if err := apperr.ValidateObject(data); err != nil {
+		return nil, ErrInvalidTicketUpdate
+	}
+
 	if strings.TrimSpace(data.Title) == "" &&
 		strings.TrimSpace(data.Description) == "" &&
 		strings.TrimSpace(data.Status) == "" {
-		return nil, errors.New("at least one field must be provided")
+		return nil, ErrEmptyTicketUpdate
 	}
 
 	ticket, err := s.repo.GetTicketByID(id, userID)
@@ -118,10 +140,13 @@ func (s *Service) UpdateTicket(id string, data UpdateTicketDTO, userID string) (
 	}
 
 	return &response, nil
-
 }
 
 func (s *Service) DeleteTicket(id string, userID string) error {
+	if !isValidUUID(id) {
+		return ErrInvalidTicketID
+	}
+
 	ticket, err := s.repo.GetTicketByID(id, userID)
 	if err != nil {
 		return err
