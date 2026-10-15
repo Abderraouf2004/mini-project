@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	appErrors "mini-project/backend/apperr"
 	"mini-project/backend/middleware"
@@ -109,17 +110,44 @@ func (c *Controller) Get(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	page := 1
+	pageSize := 10
 
-	tickets, err := c.service.GetTickets(userID)
+	if value := r.URL.Query().Get("page"); value != "" {
+		parsed, err := strconv.Atoi(value)
+		if err != nil || parsed < 1 || parsed > 1_000_000 {
+			http.Error(w, "invalid page", http.StatusBadRequest)
+			return
+		}
+		page = parsed
+	}
+
+	if value := r.URL.Query().Get("page_size"); value != "" {
+		parsed, err := strconv.Atoi(value)
+		if err != nil || parsed < 1 || parsed > 100 {
+			http.Error(w, "invalid page_size", http.StatusBadRequest)
+			return
+		}
+		pageSize = parsed
+	}
+	tickets, total, err := c.service.GetTickets(userID, page, pageSize)
 	if err != nil {
 		ticketError(w, err, "list")
 		return
 	}
+	totalPages := int((total + int64(pageSize) - 1) / int64(pageSize))
 
-	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"data":    tickets,
+	response := map[string]interface{}{
+		"data": tickets,
+		"pagination": map[string]interface{}{
+			"page":        page,
+			"page_size":   pageSize,
+			"total":       total,
+			"total_pages": totalPages,
+		},
 		"message": "Tickets retrieved successfully",
-	})
+	}
+	writeJSON(w, http.StatusOK, response)
 }
 
 func (c *Controller) Getbyid(w http.ResponseWriter, r *http.Request) {

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"mini-project/backend/api"
 	"mini-project/backend/database"
+	"mini-project/backend/middleware"
 	"mini-project/backend/models"
 	"net/http"
 	"os"
@@ -42,8 +43,12 @@ func main() {
 	mux.Handle("/api/", http.StripPrefix("/api", apiRouter))
 
 	srv := &http.Server{
-		Addr:              ":8080",
-		Handler:           mux,
+		Addr: ":8080",
+		Handler: middleware.SecurityHeaders(
+			middleware.RequestLogging(
+				middleware.RateLimit(120, time.Minute, "api")(mux),
+			),
+		),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      15 * time.Second,

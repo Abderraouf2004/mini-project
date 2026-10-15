@@ -59,24 +59,28 @@ func (s *Service) CreateTicket(data CreateTicketDTO, userID string) (*DTO, error
 	return &response, nil
 }
 
-func (s *Service) GetTickets(userID string) ([]*DTO, error) {
-	tickets, err := s.repo.GetTickets(userID)
+func (s *Service) GetTickets(
+	userID string,
+	page int,
+	pageSize int,
+) ([]*DTO, int64, error) {
+	tickets, total, err := s.repo.GetTickets(userID, page, pageSize)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	responses := make([]*DTO, 0, len(tickets))
+	result := make([]*DTO, 0, len(tickets))
 
 	for _, ticket := range tickets {
 		response, err := apperr.ValidateAndConvert[DTO](ticket)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
-		responses = append(responses, &response)
+		result = append(result, &response)
 	}
 
-	return responses, nil
+	return result, total, nil
 }
 
 func (s *Service) GetTicketByID(id string, userID string) (*DTO, error) {

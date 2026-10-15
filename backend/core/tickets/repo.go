@@ -23,13 +23,34 @@ func (r *Repository) CreateTicket(ticket *models.Ticket) (*models.Ticket, error)
 	return ticket, nil
 }
 
-func (r *Repository) GetTickets(userID string) ([]*models.Ticket, error) {
+func (r *Repository) GetTickets(
+	userID string,
+	page int,
+	pageSize int,
+) ([]*models.Ticket, int64, error) {
 	var tickets []*models.Ticket
-	err := database.DB.Find(&tickets, "user_id = ?", userID).Error
-	if err != nil {
-		return nil, err
+	var total int64
+
+	query := database.DB.Model(&models.Ticket{}).
+		Where("user_id = ?", userID)
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
 	}
-	return tickets, nil
+
+	offset := (page - 1) * pageSize
+
+	err := query.
+		Order("created_at DESC").
+		Limit(pageSize).
+		Offset(offset).
+		Find(&tickets).Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return tickets, total, nil
 }
 
 func (r *Repository) GetTicketByID(id string, userID string) (*models.Ticket, error) {

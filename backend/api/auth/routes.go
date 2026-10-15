@@ -2,31 +2,52 @@ package auth
 
 import (
 	"net/http"
+	"time"
 
 	appErrors "mini-project/backend/apperr"
 	coreAuth "mini-project/backend/core/auth"
+	"mini-project/backend/middleware"
 )
 
 func RegisterRoutes(mux *http.ServeMux) {
 	controller := coreAuth.NewController()
 
-	mux.HandleFunc("GET /auth/verify", controller.VerifyToken)
+	mux.Handle(
+		"GET /auth/verify",
+		middleware.RateLimit(20, time.Minute, "auth-verify")(
+			http.HandlerFunc(controller.VerifyToken),
+		),
+	)
 
-	mux.HandleFunc("POST /auth/refresh", controller.Refresh)
+	mux.Handle(
+		"POST /auth/refresh",
+		middleware.RateLimit(20, time.Minute, "auth-refresh")(
+			http.HandlerFunc(controller.Refresh),
+		),
+	)
 
 	mux.Handle(
 		"POST /auth/signup",
-		appErrors.ValidateRequestBody[coreAuth.SignupDTO](
-			http.HandlerFunc(controller.Signup),
+		middleware.RateLimit(5, time.Minute, "auth-signup")(
+			appErrors.ValidateRequestBody[coreAuth.SignupDTO](
+				http.HandlerFunc(controller.Signup),
+			),
 		),
 	)
 
 	mux.Handle(
 		"POST /auth/signin",
-		appErrors.ValidateRequestBody[coreAuth.SigninDTO](
-			http.HandlerFunc(controller.Signin),
+		middleware.RateLimit(10, time.Minute, "auth-signin")(
+			appErrors.ValidateRequestBody[coreAuth.SigninDTO](
+				http.HandlerFunc(controller.Signin),
+			),
 		),
 	)
-	mux.HandleFunc("POST /auth/signout", controller.SignOut)
 
+	mux.Handle(
+		"POST /auth/signout",
+		middleware.RateLimit(20, time.Minute, "auth-signout")(
+			http.HandlerFunc(controller.SignOut),
+		),
+	)
 }
